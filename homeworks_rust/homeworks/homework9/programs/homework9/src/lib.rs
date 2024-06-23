@@ -7,6 +7,7 @@ pub mod homework9 {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        msg!("Hello World!");
         Ok(())
     }
 }
