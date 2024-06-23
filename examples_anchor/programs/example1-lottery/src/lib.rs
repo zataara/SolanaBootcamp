@@ -73,13 +73,35 @@ mod example1 {
         let recipient: &mut AccountInfo =  &mut ctx.accounts.winner;        
 
         // Get total money stored under original lottery account
-        let balance: u64 = lottery.to_account_info().lamports();                      
+        let balance: u64 = lottery.to_account_info().lamports(); 
+
+        // Only pay out 90% of the total balance
+        let payout: u64 = balance * 90 / 100;                     
             
-        **lottery.to_account_info().try_borrow_mut_lamports()? -= balance;
-        **recipient.to_account_info().try_borrow_mut_lamports()? += balance; 
+        **lottery.to_account_info().try_borrow_mut_lamports()? -= payout;
+        **recipient.to_account_info().try_borrow_mut_lamports()? += payout; 
         
         Ok(())
     }
+
+    pub fn admin_withdraw_funds(ctx: Context<AdminWithdrawal>, amount: u64) -> Result<()> {
+
+      let lottery: &mut Account<Lottery> = &mut ctx.accounts.lottery;
+      let admin: &mut AccountInfo = &mut ctx.accounts.admin;
+
+      let lottery_balance: u64 = lottery.to_account_info().lamports();
+
+      if amount > lottery_balance {
+        return Err(ErrorCode::InsufficientFunds.into());
+      }
+
+      **lottery.to_account_info().try_borrow_mut_lamports()? -= amount;
+      **admin.to_account_info().try_borrow_mut_lamports()? -= amount;
+
+
+    Ok(())
+    }
+    
 }
 
 // Contexts
@@ -136,6 +158,16 @@ pub struct Payout<'info> {
     pub ticket: Account<'info, Ticket>,            // Winning PDA
 }
 
+#[derive(Accounts)]
+pub struct AdminWithdrawal<'info> {
+  #[account(mut, has_one = authority)]
+  pub lottery: Account<'info, Lottery>,
+  pub authority: Signer<'info>,
+  #[account(mut)]
+  /// CHECK: Not dangerous as it only receives lamports
+  pub admin: AccountInfo<'info>,
+}
+
 
 // Accounts
 ////////////////////////////////////////////////////////////////
@@ -157,5 +189,11 @@ pub struct Lottery {
 pub struct Ticket {    
     pub submitter: Pubkey,    
     pub idx: u32,
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Insufficient funds to withdraw.")]
+    InsufficientFunds,
 }
 
